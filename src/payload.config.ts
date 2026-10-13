@@ -1,5 +1,6 @@
 import { sqliteAdapter } from '@payloadcms/db-sqlite'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
+import { multiTenantPlugin } from '@payloadcms/plugin-multi-tenant'
 import path from 'path'
 import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
@@ -18,7 +19,21 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media],
+  collections: [
+    {
+      slug: 'tenants',
+      admin: { useAsTitle: 'name' },
+      fields: [{ name: 'name', type: 'text', required: true }],
+    },
+    {
+      slug: 'navigation-content',
+      admin: { useAsTitle: 'label' },
+      fields: [{ name: 'label', type: 'text', required: true }],
+      versions: { drafts: { autosave: { interval: 1000 } } },
+    },
+    Users,
+    Media,
+  ],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {
@@ -30,5 +45,13 @@ export default buildConfig({
     },
   }),
   sharp,
-  plugins: [],
+  plugins: [
+    multiTenantPlugin({
+      tenantsSlug: 'tenants',
+      tenantField: { name: 'organization' },
+      tenantsArrayField: { includeDefaultField: true },
+      collections: { 'navigation-content': { isGlobal: true } },
+      userHasAccessToAllTenants: (user: { role?: string }) => user.role === 'super-admin',
+    }),
+  ],
 })
